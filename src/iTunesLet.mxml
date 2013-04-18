@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" currentState="Login" 
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)" 
+					   width.Main="100%" height.Main="100%" width.Login="100%" 
+					   height.Login="100%" backgroundColor.Main="#616161" backgroundColor.Login="#C8C8C8"
+					   >
+	
+	<s:states>
+		<s:State name="Login"/>
+		<s:State name="Main"/>
+	</s:states>
+	<fx:Style>
+		@namespace "library://ns.adobe.com/flex/spark";
+		WindowedApplication
+		{
+			skinClass:ClassReference("spark.skins.spark.SparkChromeWindowedApplicationSkin");
+			color: #fff;
+		}
+	</fx:Style>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<s:HTTPService id="ws" url="http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/wa/wsSearch" resultFormat="object"
+					   result="webservice1_resultHandler(event)" fault="ws_faultHandler(event)" showBusyCursor="true"/>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.serialization.json.JSON;
+			import com.facebook.graph.FacebookDesktop;
+			import com.ituneslet.album;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.VBox;
+			import mx.controls.List;
+			import mx.controls.TileList;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.components.NavigatorContent;
+			import spark.components.Window;
+			import spark.components.supportClasses.ItemRenderer;
+			import spark.components.supportClasses.ListBase;
+			import spark.layouts.TileLayout;
+			import spark.layouts.supportClasses.LayoutBase;
+			[Bindable] private var acMusica:ArrayCollection = new ArrayCollection();
+			private function init():void
+			{
+				
+			}
+
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				FacebookDesktop.init("117068261687649", loginHandler);
+				this.maximize();
+			}
+			private function loginHandler(success:Object, fail:Object):void
+			{
+				if(success)
+				{
+					currentState = "Main";
+					idUsuario.text = success.user.name;
+					//picUsuario.source=FacebookDesktop.getImageUrl(success.uid,"small");
+					picUsuario.source=FacebookDesktop.getImageUrl(success.uid,"small");
+					FacebookDesktop.api("/me/statuses",getStatusHandler);
+					FacebookDesktop.api("/me/music", getMusic);
+					FacebookDesktop.api("/me/feed",enviarStatus,{message:"Estoy usando iTunesLet, para encontrar mis canciones favoritas"},"POST");
+
+				}else
+				{
+					login();	
+				}
+				
+			}
+			private function enviarStatus(result:Object, fail:Object):void
+			{
+				FacebookDesktop.api("/me/statuses",getStatusHandler);
+			}
+			
+			private function getMusic(result:Object, fail:Object):void
+			{
+				var consulta:String= new String();
+				for each(var resultado:Object in result)
+				{
+					ws.send({term:resultado.name});
+				}
+				
+			}
+			protected function getStatusHandler(result:Object, fail:Object):void
+			{
+				
+			}
+			private function login():void
+			{
+				FacebookDesktop.login(loginHandler,["user_birthday","read_stream","user_interests","publish_stream"]);
+			}
+			private function logout():void
+			{
+				FacebookDesktop.logout();
+				currentState = "Login";
+				tnResultados.removeAll();
+				
+				
+			}
+			[Bindable] private var objeto:Object;
+			
+			protected function webservice1_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				objeto = JSON.decode(event.result as String);
+				//arreglo.push(objeto.results);
+				if(objeto.results.length>0){
+					
+					var navContent:NavigatorContent = new NavigatorContent();
+					navContent.label = objeto.results.artistName;
+					var resultado:ArrayCollection =  new ArrayCollection(objeto.results);
+					
+					
+					var listados:spark.components.List = new spark.components.List();
+					var albu:album = new album();
+					//lista.layout = new TileLayout();
+					//lista.labelField = "artistName";
+					listados.dataProvider = resultado;
+					listados.width = tnResultados.width;
+					listados.height =tnResultados.height; 
+					listados.itemRenderer = new ClassFactory( com.ituneslet.album );
+					listados.layout = new TileLayout();
+					
+					
+					//lista.itemRenderer = new ClassFactory(album);
+					navContent.addElement(listados);
+					//navContent.label = resultado.getItemAt(0).artistName;
+					navContent.label = event.token.message.body.term.toString().toLocaleUpperCase();
+					tnResultados.addElement(navContent);
+					
+				}
+				acMusica.addItem(objeto.results);
+				
+			}
+			
+			
+			protected function ws_faultHandler(event:FaultEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+		]]>
+	</fx:Script>
+	<s:Button includeIn="Login" horizontalCenter="0" verticalCenter="0" click="login()" skinClass="com.ituneslet.skines.loginFB" width="148" chromeColor="#9F9F9F"/>
+	<mx:Image id="picUsuario" includeIn="Main" right="85" top="10" width="53" height="53"/>
+	<s:Label id="idUsuario" includeIn="Main" left="117" top="51" color="#E7E7E7" fontSize="20"
+			 fontWeight="bold" text="Label"/>
+	<s:Label id="idUsuario0" includeIn="Main" left="10" top="51" color="#41A8FF" fontSize="20"
+			 fontWeight="bold" text="Binvenido:"/>
+	<s:Button includeIn="Main" right="10" top="10" width="70" height="53" label="Log out"
+			  click="logout()"/>
+	<mx:TabNavigator includeIn="Main" id="tnResultados" left="5" right="5" bottom="40" top="80">
+		
+	</mx:TabNavigator>
+	<s:TextArea includeIn="Main" left="10" right="146" top="10" height="33" borderColor="#4F4F4F"
+				borderVisible="false" contentBackgroundColor="#575757"
+				text="iTunesLet, con un clic puedes conseguir la canción que tanto quieres."/>
+	
+	
+</s:WindowedApplication>
